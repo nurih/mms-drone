@@ -1,0 +1,51 @@
+FROM ubuntu:trusty
+
+# for trusty , use the 14. automation agent
+ENV AGENT_PACKAGE mongodb-mms-automation-agent-manager_5.4.18.5528-1_amd64.deb
+ENV MMS_ARCHIVE mongodb-mms-4.0.10.50461.20190403T1841Z-1.x86_64
+ENV MMS_DOWNLOAD_URL https://s3.amazonaws.com/mongodb-mms-build-onprem/ed64653d5fe3f780e2f1fac0e0f2463448c66a93
+
+
+# Update
+RUN apt-get -qqy update && \
+    apt-get install -qqy \
+        ca-certificates \
+        libsasl2-2 \
+        curl
+
+# Get agent package
+RUN curl -OL ${MMS_DOWNLOAD_URL}/${MMS_ARCHIVE}.tar.gz \
+    && tar -xvf ${MMS_ARCHIVE}.tar.gz ${MMS_ARCHIVE}/agent/automation/${AGENT_PACKAGE} 
+
+# # Inject package
+# COPY ./${AGENT_PACKAGE} ./
+
+
+
+# Install automation agent
+RUN dpkg -i ${MMS_ARCHIVE}/agent/automation/${AGENT_PACKAGE}
+
+RUN mkdir /data
+RUN chown mongodb:mongodb /data
+
+
+# cleanup
+RUN rm -rfv ${MMS_ARCHIVE} \
+    && rm ${MMS_ARCHIVE}.tar.gz \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+
+# Mount volumes
+VOLUME /etc/mongodb-mms/
+VOLUME /data
+
+# Mongo default TCP port
+EXPOSE 27017
+
+# When running a container using `docker run` you need to supply at least these parameters:
+# --mmsApiKey
+# --mmsGroupId
+# --mmsBaseUrl
+
+ENTRYPOINT ["/opt/mongodb-mms-automation/bin/mongodb-mms-automation-agent"]
